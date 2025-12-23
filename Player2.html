@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dynamic Fe3h Music Player</title>
+
+<style>
+  body {
+    background: #111;
+    color: #eee;
+    font-family: sans-serif;
+    text-align: center;
+    padding: 25px;
+  }
+
+  h1 {
+    margin-bottom: 5px;
+  }
+
+  select, button {
+    font-size: 16px;
+    margin: 6px;
+    padding: 10px 16px;
+    cursor: pointer;
+  }
+
+  .active {
+    background: #4caf50;
+    color: black;
+  }
+
+  .track-buttons button {
+    width: 130px;
+  }
+
+  footer {
+    margin-top: 25px;
+    font-size: 14px;
+    opacity: 0.7;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>Dynamic Fe3h Music Player</h1>
+<p>FE3H synced music layers</p>
+
+<hr>
+
+<label>
+  Song:
+  <select id="songSelect" onchange="loadSong()">
+    <option value="Fodlan Winds">Fódlan Winds</option>
+    <option value="Chasing Daybreak">Chasing Daybreak</option>
+  </select>
+</label>
+
+<hr>
+
+<button onclick="playAll()">▶ Play</button>
+<button onclick="pauseAll()">⏸ Pause</button>
+
+<hr>
+
+<div class="track-buttons">
+  <button onclick="setActive('Rain')">🌧 Rain (1)</button>
+  <button onclick="setActive('Thunder')">⛈ Thunder (2)</button>
+  <button onclick="setActive('Inferno')">💥 Inferno (3)</button>
+  <button onclick="setActive('Embers')">🔥 Embers (4)</button>
+</div>
+
+<footer>
+  Hotkeys: 1–4 switch layers · Space = Play/Pause
+</footer>
+
+<script>
+/* ===============================
+   CONFIG
+================================ */
+
+const LAYERS = ["Rain", "Thunder", "Inferno", "Embers"];
+const FADE_TIME = 0.6;
+
+const SONG_URLS = {
+  "Fodlan Winds": {
+    Rain: "https://vgmtreasurechest.com/soundtracks/fire-emblem-three-houses-gamerip/jaazxmul/1-05.%20F%C3%B3dlan%20Winds%20%28Rain%29.mp3",
+    Thunder: "https://vgmtreasurechest.com/soundtracks/fire-emblem-three-houses-gamerip/xdxeflry/1-06.%20F%C3%B3dlan%20Winds%20%28Thunder%29.mp3",
+    Inferno: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/fnaoqnrw/03.%20F%C3%B3dlan%20Winds%20%5BInferno%5D.mp3",
+    Embers: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/jdrvgtzs/04.%20F%C3%B3dlan%20Winds%20%5BEmbers%5D.mp3"
+  },
+  "Chasing Daybreak": {
+    Rain: "https://vgmtreasurechest.com/soundtracks/fire-emblem-three-houses-gamerip/sikbaaaa/3-12%20Chasing%20Daybreak%20%28Rain%29.mp3",
+    Thunder: "https://vgmtreasurechest.com/soundtracks/fire-emblem-three-houses-gamerip/abesdlvt/3-13%20Chasing%20Daybreak%20%28Thunder%29.mp3",
+    Inferno: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/qnsypfiw/07.%20Chasing%20Daybreak%20%5BInferno%5D.mp3",
+    Embers: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/lnicmelq/08.%20Chasing%20Daybreak%20%5BEmbers%5D.mp3"
+  }
+};
+
+let tracks = {};
+let currentLayer = "Rain";
+let playing = false;
+
+/* ===============================
+   AUDIO HELPERS
+================================ */
+
+function createAudio(src) {
+  const a = new Audio(src);
+  a.loop = true;
+  a.volume = 0;
+  return a;
+}
+
+function fadeTo(audio, targetVolume) {
+  const steps = 20;
+  const stepTime = (FADE_TIME * 1000) / steps;
+  const start = audio.volume;
+  let i = 0;
+
+  const interval = setInterval(() => {
+    i++;
+    audio.volume = start + (targetVolume - start) * (i / steps);
+    if (i >= steps) {
+      audio.volume = targetVolume;
+      clearInterval(interval);
+    }
+  }, stepTime);
+}
+
+/* ===============================
+   LOAD SONG
+================================ */
+
+function loadSong() {
+  pauseAll();
+  tracks = {};
+
+  const song = document.getElementById("songSelect").value;
+
+  LAYERS.forEach(layer => {
+    const url = SONG_URLS[song][layer];
+    tracks[layer] = createAudio(url);
+  });
+
+  currentLayer = "Rain";
+  highlightButton();
+}
+
+/* ===============================
+   PLAYBACK CONTROLS
+================================ */
+
+function playAll() {
+  if (playing) return;
+  Object.values(tracks).forEach(t => t.play());
+  setActive(currentLayer);
+  playing = true;
+}
+
+function pauseAll() {
+  Object.values(tracks).forEach(t => t.pause());
+  playing = false;
+}
+
+function setActive(layer) {
+  currentLayer = layer;
+  for (const key in tracks) {
+    if (key === layer) {
+      fadeTo(tracks[key], 1);
+    } else {
+      fadeTo(tracks[key], 0);
+    }
+  }
+  highlightButton();
+}
+
+/* ===============================
+   UI HELPERS
+================================ */
+
+function highlightButton() {
+  document.querySelectorAll(".track-buttons button").forEach(btn => {
+    btn.classList.remove("active");
+    if (btn.textContent.includes(currentLayer)) {
+      btn.classList.add("active");
+    }
+  });
+}
+
+/* ===============================
+   KEYBOARD SHORTCUTS
+================================ */
+
+document.addEventListener("keydown", e => {
+  if (e.code === "Space") {
+    e.preventDefault();
+    playing ? pauseAll() : playAll();
+  }
+  if (e.key >= "1" && e.key <= "4") {
+    setActive(LAYERS[e.key - 1]);
+  }
+});
+
+/* ===============================
+   INIT
+================================ */
+
+loadSong();
+</script>
+
+</body>
+</html>

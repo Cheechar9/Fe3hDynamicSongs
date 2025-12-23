@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dynamic FE Music Player</title>
+
+<style>
+  body {
+    background: #111;
+    color: #eee;
+    font-family: sans-serif;
+    text-align: center;
+    padding: 25px;
+  }
+
+  select, button {
+    font-size: 16px;
+    margin: 6px;
+    padding: 10px 16px;
+    cursor: pointer;
+  }
+
+  button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .active {
+    background: #4caf50;
+    color: black;
+  }
+
+  footer {
+    margin-top: 25px;
+    opacity: 0.7;
+  }
+
+  .part2-section {
+    margin-top: 20px;
+  }
+
+  .part2-section p {
+    margin-bottom: 10px;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>Dynamic FE Music Player</h1>
+<p>Synced music layers</p>
+
+<label>
+  Song:
+  <select id="songSelect" onchange="changeSong()">
+    <option value="Fodlan Winds">Fódlan Winds</option>
+    <option value="Chasing Daybreak">Chasing Daybreak</option>
+    <option value="Apex of the World">Apex of the World 2️⃣</option>
+    <option value="God Shattering Star">God Shattering Star</option>
+    <option value="Melody of Clarity">Melody of Clarity 2️⃣</option>
+  </select>
+</label>
+
+<hr>
+
+<!-- Play/Pause button -->
+<button onclick="togglePlay()">▶ / ⏸</button>
+
+<hr>
+
+<!-- Layer buttons -->
+<div id="buttons">
+  <button onclick="setActive('Rain')">🌧 Rain (1)</button>
+  <button onclick="setActive('Thunder')">⛈ Thunder (2)</button>
+  <button onclick="setActive('Inferno')">💥 Inferno (3)</button>
+  <button onclick="setActive('Embers')">🔥 Embers (4)</button>
+</div>
+
+<!-- Part 2 section -->
+<div class="part2-section">
+  <p>Some songs have Part 2 versions for Inferno and Embers. Only Songs marked with a 2️⃣ have Part 2 versions:</p>
+  <button onclick="triggerPart2()">🔥 Trigger Part 2</button>
+</div>
+
+<footer>
+  Hotkeys: 1–4 layers · Space = Play/Pause · P = Trigger Part 2
+</footer>
+
+<script>
+/* ================= CONFIG ================= */
+
+const FADE_TIME = 0.6;
+const LAYERS = ["Rain", "Thunder", "Inferno", "Embers"];
+
+const SONGS = {
+  "Fodlan Winds": {
+    Rain: "https://vgmtreasurechest.com/soundtracks/fire-emblem-three-houses-gamerip/jaazxmul/1-05.%20F%C3%B3dlan%20Winds%20%28Rain%29.mp3",
+    Thunder: "https://vgmtreasurechest.com/soundtracks/fire-emblem-three-houses-gamerip/xdxeflry/1-06.%20F%C3%B3dlan%20Winds%20%28Thunder%29.mp3",
+    Inferno: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/fnaoqnrw/03.%20F%C3%B3dlan%20Winds%20%5BInferno%5D.mp3",
+    Embers: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/jdrvgtzs/04.%20F%C3%B3dlan%20Winds%20%5BEmbers%5D.mp3"
+  },
+
+  "Chasing Daybreak": {
+    Rain: "https://vgmtreasurechest.com/soundtracks/fire-emblem-three-houses-gamerip/sikbaaaa/3-12%20Chasing%20Daybreak%20%28Rain%29.mp3",
+    Thunder: "https://vgmtreasurechest.com/soundtracks/fire-emblem-three-houses-gamerip/abesdlvt/3-13%20Chasing%20Daybreak%20%28Thunder%29.mp3",
+    Inferno: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/qnsypfiw/07.%20Chasing%20Daybreak%20%5BInferno%5D.mp3",
+    Embers: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/lnicmelq/08.%20Chasing%20Daybreak%20%5BEmbers%5D.mp3"
+  },
+
+  "Apex of the World": {
+    Rain: "https://vgmtreasurechest.com/soundtracks/fire-emblem-three-houses-gamerip/vfodzmls/6-01%20The%20Apex%20of%20the%20World%20%28Rain%29.mp3",
+    Thunder: "https://vgmtreasurechest.com/soundtracks/fire-emblem-three-houses-gamerip/imjiripb/6-02%20The%20Apex%20of%20the%20World%20%28Thunder%29.mp3",
+    Inferno: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/kxgnwuhb/25.%20The%20Apex%20of%20the%20World%20%28Part%20I%29%20%5BInferno%5D.mp3",
+    Embers: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/kvxbpuek/26.%20The%20Apex%20of%20the%20World%20%28Part%20I%29%20%5BEmbers%5D.mp3",
+    InfernoPart2: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/iafzeapv/67.%20The%20Apex%20of%20the%20World%20%28Part%20II%29%20%5BInferno%5D.mp3",
+    EmbersPart2: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/lqvgvlqv/68.%20The%20Apex%20of%20the%20World%20%28Part%20II%29%20%5BEmbers%5D.mp3"
+  },
+
+  "God Shattering Star": {
+    Rain: "https://vgmtreasurechest.com/soundtracks/fire-emblem-three-houses-gamerip/mhxpkfws/6-03%20God-Shattering%20Star%20%28Rain%29.mp3",
+    Thunder: "https://vgmtreasurechest.com/soundtracks/fire-emblem-three-houses-gamerip/whvfrtsj/6-04%20God-Shattering%20Star%20%28Thunder%29.mp3"
+  },
+
+  "Melody of Clarity": {
+    Inferno: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/qxpfjgal/27.%20Melody%20of%20Clarity%20%28Part%20I%29%20%5BInferno%5D.mp3",
+    Embers: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/dieamjkw/28.%20Melody%20of%20Clarity%20%28Part%20I%29%20%5BEmbers%5D.mp3",
+    InfernoPart2: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/gsympqgj/69.%20Melody%20of%20Clarity%20%28Part%20II%29%20%5BInferno%5D.mp3",
+    EmbersPart2: "https://jetta.vgmtreasurechest.com/soundtracks/fire-emblem-warriors-three-hopes-gamerip-2022-switch/berwjdpn/70.%20Melody%20of%20Clarity%20%28Part%20II%29%20%5BEmbers%5D.mp3"
+  }
+};
+
+let tracks = {};
+let part2Tracks = {};
+let currentLayer = null;
+let playing = false;
+
+/* ================= AUDIO ================= */
+
+function createAudio(src) {
+  const a = new Audio(src);
+  a.loop = true;
+  a.volume = 0;
+  return a;
+}
+
+function fadeTo(audio, target) {
+  const steps = 20;
+  const stepTime = FADE_TIME * 1000 / steps;
+  const start = audio.volume;
+  let i = 0;
+
+  const interval = setInterval(() => {
+    i++;
+    audio.volume = start + (target - start) * (i / steps);
+    if (i >= steps) clearInterval(interval);
+  }, stepTime);
+}
+
+/* ================= SONG LOAD ================= */
+
+function changeSong() {
+  fadeOutAll(() => loadSong());
+}
+
+function fadeOutAll(callback) {
+  Object.values(tracks).forEach(t => fadeTo(t, 0));
+  Object.values(part2Tracks).forEach(t => fadeTo(t, 0));
+  setTimeout(callback, FADE_TIME * 1000);
+}
+
+function loadSong() {
+  Object.values(tracks).forEach(t => t.pause());
+  Object.values(part2Tracks).forEach(t => t.pause());
+  tracks = {};
+  part2Tracks = {};
+
+  const song = document.getElementById("songSelect").value;
+  const data = SONGS[song];
+
+  LAYERS.forEach(layer => {
+    if (data[layer]) {
+      tracks[layer] = createAudio(data[layer]);
+    }
+    if (data[layer + "Part2"]) {
+      part2Tracks[layer] = createAudio(data[layer + "Part2"]);
+      part2Tracks[layer].loop = true;
+      part2Tracks[layer].volume = 0;
+    }
+  });
+
+  updateButtons();
+  currentLayer = Object.keys(tracks)[0];
+
+  if (playing) playAll();
+}
+
+/* ================= PLAYBACK ================= */
+
+function playAll() {
+  Object.values(tracks).forEach(t => t.play());
+  Object.values(part2Tracks).forEach(t => t.play());
+  setActive(currentLayer);
+  playing = true;
+}
+
+function togglePlay() {
+  playing ? pauseAll() : playAll();
+}
+
+function pauseAll() {
+  Object.values(tracks).forEach(t => t.pause());
+  Object.values(part2Tracks).forEach(t => t.pause());
+  playing = false;
+}
+
+function setActive(layer) {
+  if (!tracks[layer]) return;
+  currentLayer = layer;
+
+  for (const l in tracks) {
+    fadeTo(tracks[l], l === layer ? 1 : 0);
+  }
+  highlight();
+}
+
+/* ================= PART 2 ================= */
+
+function triggerPart2() {
+  if (!currentLayer || !part2Tracks[currentLayer]) return;
+
+  fadeTo(part2Tracks[currentLayer], 1);
+  fadeTo(tracks[currentLayer], 0);
+  // Once triggered, it keeps looping independently
+}
+
+/* ================= UI ================= */
+
+function updateButtons() {
+  document.querySelectorAll("#buttons button").forEach(btn => {
+    const layer = btn.textContent.match(/\w+/)[0];
+    btn.disabled = !tracks[layer];
+  });
+}
+
+function highlight() {
+  document.querySelectorAll("#buttons button").forEach(btn => {
+    btn.classList.remove("active");
+    if (btn.textContent.includes(currentLayer)) btn.classList.add("active");
+  });
+}
+
+/* ================= HOTKEYS ================= */
+
+document.addEventListener("keydown", e => {
+  if (e.code === "Space") {
+    e.preventDefault();
+    togglePlay();
+  }
+  if (e.key >= "1" && e.key <= "4") {
+    const layer = LAYERS[e.key - 1];
+    setActive(layer);
+  }
+  if (e.key === "p") {
+    triggerPart2();
+  }
+});
+
+/* ================= INIT ================= */
+
+loadSong();
+</script>
+
+</body>
+</html>
